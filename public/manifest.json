@@ -1,0 +1,18 @@
+{
+  "name": "OUTSTAND",
+  "short_name": "OUTSTAND",
+  "description": "Seu cockpit pessoal para hábitos, finanças, saúde, ideias, tarefas e projetos de evolução diária.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#04070f",
+  "theme_color": "#04070f",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
