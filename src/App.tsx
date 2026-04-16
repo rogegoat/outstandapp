@@ -672,7 +672,6 @@ function App() {
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [isSyncingState, setIsSyncingState] = useState(false);
   const [loginError, setLoginError] = useState("");
-  const importFileRef = useRef<HTMLInputElement | null>(null);
   const remoteLoadedRef = useRef(false);
   const hydrateRef = useRef(false);
   const syncTimeoutRef = useRef<number | null>(null);
@@ -3437,34 +3436,7 @@ function App() {
           <div className="flex items-center gap-3">
             {isSyncingState && <span className="text-[11px] text-slate-500">Sincronizando...</span>}
             <span className="hidden text-xs text-slate-500 sm:inline">{sessionUser.name}</span>
-            <input
-              ref={importFileRef}
-              type="file"
-              accept=".json"
-              className="hidden"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                try {
-                  const payload = JSON.parse(await file.text());
-                  await authFetch("/api/state", {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ payload }),
-                  });
-                  window.location.reload();
-                } catch {
-                  alert("Erro ao importar backup");
-                }
-                e.target.value = "";
-              }}
-            />
-            <button
-              className="inline-flex items-center rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] text-slate-400 transition hover:text-slate-200"
-              onClick={() => importFileRef.current?.click()}
-            >
-              Importar
-            </button>
+
             <button
               className="inline-flex items-center rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] text-slate-400 transition hover:text-slate-200"
               onClick={async () => {
