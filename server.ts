@@ -2,25 +2,24 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { SignJWT, jwtVerify } from "jose";
-import Database from "better-sqlite3";
-import { join } from "path";
-import { existsSync, mkdirSync, readFileSync } from "fs";
+import pg from "pg";
+import { readFileSync } from "fs";
 
-const DATA_DIR = process.env.DATA_DIR ?? "./data";
+const { Pool } = pg;
+
 const PORT = parseInt(process.env.PORT ?? "3000");
 const AUTH_PASSWORD = process.env.AUTH_PASSWORD ?? "changeme";
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET ?? "outstand-secret-change-in-prod"
 );
 
-if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-const db = new Database(join(DATA_DIR, "db.sqlite"));
-db.exec(`
+await pool.query(`
   CREATE TABLE IF NOT EXISTS app_state (
     id INTEGER PRIMARY KEY DEFAULT 1,
     payload TEXT NOT NULL DEFAULT '{}',
-    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+    updated_at INTEGER NOT NULL DEFAULT extract(epoch from now())::integer
   )
 `);
 
@@ -59,12 +58,10 @@ app.get("/api/auth/session", async (c) => {
 });
 
 app.get("/api/state", requireAuth, async (c) => {
-  const row = db
-    .prepare("SELECT payload, updated_at FROM app_state WHERE id = 1")
-    .get() as { payload: string; updated_at: number } | undefined;
-  if (!row) return c.json({ payload: {}, updatedAt: null });
+  const { rows } = await pool.query("SELECT payload, updated_at FROM app_state WHERE id = 1");
+  if (!rows[0]) return c.json({ payload: {}, updatedAt: null });
   try {
-    return c.json({ payload: JSON.parse(row.payload), updatedAt: row.updated_at });
+    return c.json({ payload: JSON.parse(rows[0].payload), updatedAt: rows[0].updated_at });
   } catch {
     return c.json({ payload: {}, updatedAt: null });
   }
@@ -74,10 +71,11 @@ app.put("/api/state", requireAuth, async (c) => {
   const body = await c.req.json<{ payload?: unknown }>();
   const payload = body?.payload && typeof body.payload === "object" ? body.payload : {};
   const now = Math.floor(Date.now() / 1000);
-  db.prepare(`
-    INSERT INTO app_state (id, payload, updated_at) VALUES (1, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at
-  `).run(JSON.stringify(payload), now);
+  await pool.query(
+    `INSERT INTO app_state (id, payload, updated_at) VALUES (1, $1, $2)
+     ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = EXCLUDED.updated_at`,
+    [JSON.stringify(payload), now]
+  );
   return c.json({ ok: true, updatedAt: now });
 });
 
